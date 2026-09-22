@@ -56,8 +56,8 @@ does not and cannot silently upgrade an already-enrolled device. See
 
 | Platform | Implementation | Backing reported | Status |
 |---|---|---|---|
-| **Android** | `AndroidKeyStore` + `java.security.Signature`, `BiometricPrompt` | `strongbox` → `tee` → `software` | Implemented |
-| **iOS** | `SecKeyCreateSignature`, Secure Enclave, `LAContext` | `secure_enclave` / `keychain` | Implemented |
+| **Android** | `AndroidKeyStore` + `java.security.Signature`, `BiometricPrompt` | `strongbox` → `tee` → `software` | Implemented, tested on emulator |
+| **iOS** | `SecKeyCreateSignature`, Secure Enclave, `LAContext` | `secure_enclave` / `keychain` | Implemented, tested on simulator |
 | **Web** (browser, no Tauri) | WebCrypto, non-extractable `CryptoKey` in IndexedDB | `software` | Implemented, unit-tested |
 | **macOS / Windows / Linux** | Rust `p256` software signer, per-key file in the app data dir | `software` | Implemented, unit-tested |
 
@@ -349,6 +349,20 @@ All three also assert the signature is exactly 64 bytes. A DER signature would
 be 70–72 bytes and would fail verification roughly 1 time in 256 rather than
 every time, which is the kind of bug that ships.
 
+### What an emulator can and cannot prove
+
+An Android emulator ships a **software keymaster**, so `capabilities()` there
+reports `backing: "software"` and `hardwareBacked: false`. That is the plugin
+being honest, not a bug — and it is worth knowing before reading an emulator run
+as evidence of hardware backing. What an emulator *does* prove is everything
+except residency: that the key is created in AndroidKeyStore rather than in
+process memory, that `getEncoded()` is null, that the DER→P1363 conversion is
+right, that `BiometricPrompt` is raised with the authenticators the key was
+created with, and that the signature verifies against the reported JWK.
+
+Hardware residency is asserted only by the instrumented suite, and only on a
+physical device — on an emulator that assertion is *skipped*, not passed.
+
 ### Non-extractability
 
 Claims are checked, not assumed:
@@ -423,14 +437,17 @@ npm install && npm test && npm run typecheck
 cd darwin_tests && swift test
 
 # Kotlin JVM unit tests (DER -> P1363, BigInteger -> coordinate, wire contract).
-# `cargo build` first: it populates android/.tauri/ with the Tauri Android API
-# that the Gradle project resolves `:tauri-android` from.
-cargo build --lib
-cd android && gradle testDebugUnitTest
+#
+# Run from the EXAMPLE's generated Android project, not from `android/` — that
+# directory is a Gradle subproject with no wrapper and no settings of its own.
+# `tauri android init` writes a `tauri.settings.gradle` that includes it as
+# `:tauri-plugin-sign-keypair` alongside Tauri's own `:tauri-android`, which is
+# what supplies its `app.tauri.*` dependencies.
+cd examples/tauri-app && npm install && npx tauri android init
+cd src-tauri/gen/android && ./gradlew :tauri-plugin-sign-keypair:testDebugUnitTest
 
-# Kotlin instrumented tests (real AndroidKeyStore). Needs a booted device, and
-# must run from a host app's generated Android project (`tauri android dev`).
-gradle :tauri-plugin-sign-keypair:connectedDebugAndroidTest
+# Kotlin instrumented tests (real AndroidKeyStore). Needs a booted device.
+./gradlew :tauri-plugin-sign-keypair:connectedDebugAndroidTest
 ```
 
 ---

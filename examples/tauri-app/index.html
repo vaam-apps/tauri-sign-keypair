@@ -25,8 +25,14 @@
 
       <section>
         <h2>2. Sign</h2>
+        <p class="muted">
+          The ambient key never prompts. The user-present key raises a biometric
+          or device-credential prompt every time — that is the whole reason the
+          two are separate keys.
+        </p>
         <div class="row">
-          <button id="sign">signCompactJws()</button>
+          <button id="sign">signCompactJws() — ambient</button>
+          <button id="sign-up">signCompactJws() — user-present</button>
           <button id="verify">verify the last JWS</button>
         </div>
       </section>

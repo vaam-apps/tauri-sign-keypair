@@ -93,13 +93,18 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
-      # The plugin's Gradle project resolves `:tauri-android` out of
-      # `android/.tauri/`, which `build.rs` populates from the `tauri` crate.
-      # Running the build script first is what puts it there.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
       - uses: dtolnay/rust-toolchain@stable
-      - name: Materialise the Tauri Android API
-        run: cargo build --lib
-      - uses: gradle/actions/setup-gradle@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4.4.1
+      # `android/` is a Gradle subproject with no wrapper and no settings of its
+      # own — it cannot be built standalone. `tauri android init` generates the
+      # host project whose `tauri.settings.gradle` includes it as
+      # `:tauri-plugin-sign-keypair` and supplies its `app.tauri.*` dependencies.
+      - name: Generate the host Android project
+        run: |
+          npm install && npm run build
+          cd examples/tauri-app && npm install && npx tauri android init
       - name: JVM unit tests
-        working-directory: android
-        run: gradle testDebugUnitTest --no-daemon
+        working-directory: examples/tauri-app/src-tauri/gen/android
+        run: ./gradlew :tauri-plugin-sign-keypair:testDebugUnitTest --no-daemon

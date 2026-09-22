@@ -1,8 +1,10 @@
 import {
   DEFAULT_KEY_ID,
+  DEFAULT_USER_PRESENT_KEY_ID,
   SignKeypair,
   SignKeypairError,
   type EcPublicJwk,
+  type SignOptions,
 } from 'tauri-plugin-sign-keypair-api'
 
 const signer = new SignKeypair()
@@ -87,20 +89,35 @@ action('enrol-ambient', 'generateKey() — ambient only', async () => {
   log(`  JWK → ${JSON.stringify(key.publicKey)}`)
 })
 
-action('sign', 'signCompactJws()', async () => {
+action('sign', 'signCompactJws() — ambient', () => sign())
+
+/**
+ * The prompting key.
+ *
+ * `reason` is passed deliberately: it is what the Android `BiometricPrompt`
+ * title and the iOS `LAContext.localizedReason` display. Omitting it shows the
+ * platform's own generic string, in whatever language the platform picked —
+ * treat seeing that in production as a call site that forgot to localize.
+ */
+action('sign-up', 'signCompactJws() — user-present', () =>
+  sign({ keyId: DEFAULT_USER_PRESENT_KEY_ID, reason: 'Confirm this transfer of 500.00' })
+)
+
+async function sign(options: SignOptions = {}) {
   const payload = {
     timestamp_ms: Date.now(),
     device_id: 'demo-device',
     method: 'POST',
     path: '/v1/payments/transfer',
   }
-  lastJws = await signer.signCompactJws(payload)
-  lastJwk = (await signer.getPublicKeyJwk()) ?? undefined
+  lastJws = await signer.signCompactJws(payload, options)
+  lastJwk = (await signer.getPublicKeyJwk({ keyId: options.keyId })) ?? undefined
   const [header, body, signature] = lastJws.split('.')
-  log(`  ✓ header    ${header}`, 'ok')
+  log(`  ✓ signed with ${options.keyId ?? 'device'}`, 'ok')
+  log(`    header    ${header}`)
   log(`    payload   ${body}`)
   log(`    signature ${signature}`)
-})
+}
 
 action('verify', 'verify the last JWS', async () => {
   if (!lastJws || !lastJwk) {

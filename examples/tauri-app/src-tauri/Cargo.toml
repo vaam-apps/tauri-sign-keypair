@@ -4,6 +4,14 @@ version = "0.0.0"
 edition = "2021"
 publish = false
 
+# Tauri's mobile targets build the app as a library — Android dlopens it and
+# calls the mobile entry point from Kotlin, iOS links it statically — so the
+# crate must expose one. `staticlib` is for iOS, `cdylib` for Android, and
+# `rlib` is what `main.rs` links against on desktop.
+[lib]
+name = "tauri_sign_keypair_example_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
