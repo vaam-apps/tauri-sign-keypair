@@ -36,10 +36,15 @@ mod mobile;
 pub use error::{Error, Result, SignerErrorCode};
 pub use models::{EcPublicJwk, KeyBacking, KeyProtection, SecureKey, SignerCapabilities};
 
+/// The platform's signer, as returned by [`SignKeypairExt::sign_keypair`].
+///
+/// Public so a caller can name the type — a helper that takes the signer, or a
+/// test that holds one — but its inherent methods are the whole API; there is
+/// nothing to construct here directly.
 #[cfg(desktop)]
-use desktop::SignKeypair;
+pub use desktop::SignKeypair;
 #[cfg(mobile)]
-use mobile::SignKeypair;
+pub use mobile::SignKeypair;
 
 /// The key id used when a caller does not name one — the *ambient* key, meant
 /// to be signed with on every request, including from a background interceptor
