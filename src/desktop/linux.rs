@@ -1,22 +1,25 @@
 //! TPM 2.0 backend for Linux, over the TSS Enhanced System API.
 //!
-//! # ⚠️ This module has never been compiled or run
+//! # ⚠️ Compiles, but has never been run against a TPM
 //!
 //! It is behind the **off-by-default** `linux-tpm` feature, and that gating is
 //! not optional: `tss-esapi` links the `tpm2-tss` C libraries, so enabling it by
 //! default would break `cargo build` for every Linux consumer without
 //! `libtss2-dev` installed.
 //!
-//! It was written against the real `tss-esapi` 7.7 API — every signature here
-//! was read out of the crate's source rather than recalled — but the build
-//! machine had no way to verify it: `tpm2-tss` has no Homebrew formula, and the
-//! Tauri Linux target cannot be cross-checked from macOS because its GTK/WebKit
-//! dependencies are unresolvable for a foreign target. **Treat this as a
-//! reviewed draft, not as working code**, and see `docs/07-linux-tpm.md` for the
-//! validation steps (swtpm first, then real hardware) before trusting it.
+//! What *is* verified: CI builds this module on a Linux runner with
+//! `libtss2-dev` and it passes `clippy -D warnings`. So the API usage is right
+//! and the types line up.
 //!
-//! Nothing reaches this module unless somebody opts in, so an unverified draft
-//! cannot affect a default build.
+//! What is **not**: no TPM has ever executed any of it. Compiling is not
+//! working — the command sequence, the object attributes, the blob round-trip
+//! and the `r`/`s` padding are all unexercised. See `docs/07-linux-tpm.md` for
+//! the validation path: `swtpm` first, then real hardware, asserting the
+//! signature verifies against the reported JWK exactly as every other backend's
+//! tests do.
+//!
+//! Nothing reaches this module unless somebody opts in, so an unvalidated
+//! backend cannot affect a default build.
 //!
 //! # How a TPM key differs from every other backend here
 //!

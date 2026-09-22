@@ -2,11 +2,17 @@
 
 [← build log](06-build-log.md) · [index](README.md)
 
-> **Status.** `src/desktop/linux.rs` exists and implements the full `Backend`
-> trait against the real `tss-esapi` 7.7 API. It is behind the **off-by-default**
-> `linux-tpm` feature and **has never been compiled or run.** Treat it as a
-> reviewed draft. With the flag off — the default — none of it is compiled and
-> every other target is unaffected.
+> **Status.** `src/desktop/linux.rs` implements the full `Backend` trait against
+> the real `tss-esapi` 7.7 API, behind the **off-by-default** `linux-tpm`
+> feature.
+>
+> It **compiles** — CI builds it on a Linux runner with `libtss2-dev` and it
+> passes `clippy -D warnings`, as a required check. It has **never been run
+> against a TPM**. Compiling is not working: the command sequence, the object
+> attributes, the blob round-trip and the `r`/`s` padding are all unexercised.
+>
+> With the flag off — the default — none of it is compiled and every other
+> target is unaffected.
 
 This document is the design it implements, the reasoning about what could and
 could not be verified, and the steps to actually validate it.

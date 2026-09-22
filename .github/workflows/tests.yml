@@ -51,12 +51,13 @@ jobs:
       # The one place the Linux TPM module can be compiled at all — it needs the
       # tpm2-tss C libraries, which no other machine in this project has.
       #
-      # `continue-on-error` so a failure here cannot block a pull request that
-      # did not touch it. Note the trap that caught this once already: with
-      # continue-on-error, a FAILED step still reports `conclusion: success` in
-      # the API, and only `outcome` shows the truth. Read the log, not the tick.
-      - name: Linux TPM backend (compile only — never run against a TPM)
-        continue-on-error: true
+      # This is a REQUIRED check. It was `continue-on-error` while the module
+      # did not compile, and that masked the failure: with continue-on-error a
+      # failed step still reports `conclusion: success` through the API, and
+      # only `outcome` shows the truth — the job looked green while the compiler
+      # emitted six errors. Now that it compiles, the tick means something, so
+      # let it block.
+      - name: Linux TPM backend (compiles; never run against a TPM)
         run: |
           sudo apt-get install -y libtss2-dev
           cargo clippy --features linux-tpm -- -D warnings
@@ -127,6 +128,8 @@ jobs:
         with:
           node-version: '22'
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
       # No `setup-android` action. The ubuntu runner already ships the SDK at
       # $ANDROID_HOME, and the action re-runs sdkmanager to install packages it
       # already has — which is how it was failing here. What the runner does not
@@ -148,6 +151,13 @@ jobs:
         run: |
           npm install && npm run build
           cd examples/tauri-app && npm install && npx tauri android init
+      # `tauri android init` does NOT write `tauri.settings.gradle` — the Rust
+      # build script does, and that is the file that includes the plugin as
+      # `:tauri-plugin-sign-keypair`. Without this step Gradle fails evaluating
+      # settings. `cargo check` is enough: build scripts run, and nothing links,
+      # so no NDK linker is needed.
+      - name: Emit tauri.settings.gradle via the build script
+        run: cargo check --target aarch64-linux-android --manifest-path examples/tauri-app/src-tauri/Cargo.toml
       - name: JVM unit tests
         working-directory: examples/tauri-app/src-tauri/gen/android
         run: ./gradlew :tauri-plugin-sign-keypair:testDebugUnitTest --no-daemon

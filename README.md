@@ -65,7 +65,7 @@ does not and cannot silently upgrade an already-enrolled device. See
 | **Web** (browser, no Tauri) | WebCrypto, non-extractable `CryptoKey` in IndexedDB | `software` | Implemented, unit-tested |
 | **macOS** | Secure Enclave / data-protection keychain — **requires a signed, entitled build** (see below) | `secure_enclave` / `keychain` → falls back to `software` | Implemented; enclave path not yet exercised on real hardware |
 | **Windows** | CNG, Microsoft Platform Crypto Provider (TPM) | `tee` → falls back to `software` | Implemented; **type-checked only** — no Windows machine was available |
-| **Linux** | Rust `p256` software signer; TPM 2.0 behind the off-by-default `linux-tpm` feature | `software`, or `tee` with `linux-tpm` | Software path tested. **TPM path never compiled — see below** |
+| **Linux** | Rust `p256` software signer; TPM 2.0 behind the off-by-default `linux-tpm` feature | `software`, or `tee` with `linux-tpm` | Software path tested. **TPM path compiles in CI, never run — see below** |
 
 ### macOS needs an entitlement, or it silently degrades
 
@@ -122,13 +122,11 @@ anything at runtime — there was no Windows machine to run it on.
 tauri-plugin-sign-keypair = { version = "…", features = ["linux-tpm"] }
 ```
 
-**Read this before enabling it.** The module was written against the real
-`tss-esapi` 7.7 API — every signature was read out of the crate's source, not
-recalled — but it has never been built, let alone run. `tss-esapi` links the
-`tpm2-tss` C libraries, which have no Homebrew formula, and the Tauri Linux
-target cannot be cross-checked from macOS because its GTK/WebKit dependencies
-are unresolvable for a foreign target. So unlike the Windows backend there is
-**no verification at all**, not even a type-check. Treat it as a reviewed draft.
+**Read this before enabling it.** CI compiles this module on a Linux runner
+with `libtss2-dev` and it passes `clippy -D warnings`, so the API usage is right
+and the types line up. But **no TPM has ever executed any of it** — the command
+sequence, the object attributes, the blob round-trip and the `r`/`s` padding are
+all unexercised. Compiling is not working.
 
 The flag is off by default and must stay that way: enabling `tss-esapi`
 unconditionally would break `cargo build` for every Linux consumer without
