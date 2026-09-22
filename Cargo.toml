@@ -37,6 +37,8 @@ windows = { version = "0.62", features = ["Win32_Security_Cryptography", "Win32_
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tss-esapi = { version = "7", optional = true }
+# TPM2_Sign takes a digest, not a message, so the TPM backend hashes here.
+sha2 = { version = "0.10", optional = true }
 
 [build-dependencies]
 tauri-plugin = { version = "2", features = ["build"] }
@@ -51,4 +53,4 @@ tauri = { version = "2", features = ["test"] }
 # libraries, which are absent on most build machines. Enabling it by default
 # would break `cargo build` for every Linux consumer without libtss2-dev.
 [features]
-linux-tpm = ["dep:tss-esapi"]
+linux-tpm = ["dep:tss-esapi", "dep:sha2"]

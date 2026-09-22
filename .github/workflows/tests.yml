@@ -48,11 +48,14 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
-      # The one place the Linux TPM module can actually be compiled. It is
-      # off by default and has never been built, so this job is `continue-on-
-      # error`: a failure here must not block a pull request that did not touch
-      # it, but it does surface in the run, which is how the draft stops rotting.
-      - name: Linux TPM backend (unverified — informational only)
+      # The one place the Linux TPM module can be compiled at all — it needs the
+      # tpm2-tss C libraries, which no other machine in this project has.
+      #
+      # `continue-on-error` so a failure here cannot block a pull request that
+      # did not touch it. Note the trap that caught this once already: with
+      # continue-on-error, a FAILED step still reports `conclusion: success` in
+      # the API, and only `outcome` shows the truth. Read the log, not the tick.
+      - name: Linux TPM backend (compile only — never run against a TPM)
         continue-on-error: true
         run: |
           sudo apt-get install -y libtss2-dev

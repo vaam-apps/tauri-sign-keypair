@@ -57,10 +57,12 @@ use tss_esapi::handles::KeyHandle;
 use tss_esapi::interface_types::algorithm::{HashingAlgorithm, PublicAlgorithm};
 use tss_esapi::interface_types::ecc::EccCurve;
 use tss_esapi::interface_types::resource_handles::Hierarchy;
+use tss_esapi::constants::tss::{TPM2_RH_NULL, TPM2_ST_HASHCHECK};
 use tss_esapi::structures::{
-    Digest, EccPoint, EccScheme, HashScheme, Private, Public, PublicBuilder,
-    PublicEccParametersBuilder, Signature, SignatureScheme,
+    Digest, EccPoint, EccScheme, HashScheme, HashcheckTicket, Private, Public, PublicBuilder,
+    PublicEccParametersBuilder, Signature, SignatureScheme, SymmetricDefinitionObject,
 };
+use tss_esapi::tss2_esys::TPMT_TK_HASHCHECK;
 use tss_esapi::tcti_ldr::TctiNameConf;
 use tss_esapi::Context;
 
@@ -156,14 +158,11 @@ impl TpmBackend {
         })?;
 
         let public: Public = unmarshal(&blobs.public)?;
-        let private: Private = unmarshal(&blobs.private)?;
+        let private = decode_private(&blobs.private)?;
         let primary = create_primary(context)?;
         let key = context
             .execute_with_nullauth_session(|ctx| ctx.load(primary, private, public))
-            .map_err(|e| {
-                let _ = ();
-                keystore(format!("TPM2_Load failed for \"{key_id}\": {e}"))
-            })?;
+            .map_err(|e| keystore(format!("TPM2_Load failed for \"{key_id}\": {e}")))?;
         Ok((key, primary))
     }
 }
@@ -202,10 +201,12 @@ impl Backend for TpmBackend {
         }
 
         let mut context = open_context()?;
+        let template = signing_key_template()
+            .map_err(|e| keystore(format!("Could not build the key template: {e}")))?;
         let primary = create_primary(&mut context)?;
         let result = context
             .execute_with_nullauth_session(|ctx| {
-                ctx.create(primary, signing_key_template()?, None, None, None, None)
+                ctx.create(primary, template, None, None, None, None)
             })
             .map_err(|e| keystore(format!("TPM2_Create failed: {e}")));
         let _ = context.flush_context(primary.into());
@@ -214,7 +215,7 @@ impl Backend for TpmBackend {
         let jwk = jwk_from_public(&result.out_public)?;
         let blobs = KeyBlobs {
             public: marshal(&result.out_public)?,
-            private: marshal(&result.out_private)?,
+            private: encode_private(&result.out_private),
         };
 
         std::fs::create_dir_all(&self.directory).map_err(|e| {
@@ -373,7 +374,7 @@ fn create_primary(context: &mut Context) -> crate::Result<KeyHandle> {
         )
         .with_ecc_parameters(
             PublicEccParametersBuilder::new_restricted_decryption_key(
-                tss_esapi::structures::SymmetricDefinitionObject::AES_128_CFB,
+                SymmetricDefinitionObject::AES_128_CFB,
                 EccCurve::NistP256,
             )
             .build()
