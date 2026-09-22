@@ -7,7 +7,7 @@
 //!
 //! | OS | Intended native backend | Status |
 //! |---|---|---|
-//! | macOS | Secure Enclave / data-protection keychain | **not implemented** |
+//! | macOS | Secure Enclave / data-protection keychain | implemented |
 //! | Windows | CNG, Microsoft Platform Crypto Provider (TPM) | **not implemented** |
 //! | Linux | TPM 2.0 via the TSS Enhanced System API | **not implemented** |
 //!
@@ -26,13 +26,15 @@ use crate::models::{KeyProtection, SecureKey, SignerCapabilities};
 
 pub(crate) mod software;
 
-// The native backends are not implemented yet. This module is the seam they
-// plug into: each one becomes a `mod`, a `probe() -> Option<Self>` and a
-// `Backend` impl, with no change to `commands.rs` or to the public API.
-//
-// Until then every desktop OS resolves to `software`, which reports
-// `backing: "software"` and `hardware_backed: false` — so the plugin is
-// under-claiming rather than over-claiming while the work is outstanding.
+#[cfg(target_os = "macos")]
+pub(crate) mod macos;
+
+// Windows (CNG against the Microsoft Platform Crypto Provider) and Linux
+// (TPM 2.0 via the TSS Enhanced System API) are not implemented yet. Each
+// becomes a `mod`, a `probe() -> Option<Self>` and a `Backend` impl, with no
+// change to `commands.rs` or to the public API. Until then those two resolve to
+// `software`, which reports `backing: "software"` and `hardware_backed: false`
+// — under-claiming rather than over-claiming while the work is outstanding.
 
 /// What every desktop backend implements.
 ///
@@ -95,8 +97,11 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 /// misconfiguration surfaces later, on the first call, with a code the caller
 /// can act on.
 fn select_backend(directory: std::path::PathBuf) -> Box<dyn Backend> {
-    // Native probes go here, strongest first, each returning `None` when the
-    // platform cannot serve it. See the note above `mod software`.
+    #[cfg(target_os = "macos")]
+    if let Some(backend) = macos::SecureEnclaveBackend::probe() {
+        return Box::new(backend);
+    }
+
     Box::new(software::SoftwareBackend::new(directory))
 }
 

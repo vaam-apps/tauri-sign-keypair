@@ -59,19 +59,39 @@ does not and cannot silently upgrade an already-enrolled device. See
 | **Android** | `AndroidKeyStore` + `java.security.Signature`, `BiometricPrompt` | `strongbox` → `tee` → `software` | Implemented, tested on emulator |
 | **iOS** | `SecKeyCreateSignature`, Secure Enclave, `LAContext` | `secure_enclave` / `keychain` | Implemented, tested on simulator |
 | **Web** (browser, no Tauri) | WebCrypto, non-extractable `CryptoKey` in IndexedDB | `software` | Implemented, unit-tested |
-| **macOS / Windows / Linux** | Rust `p256` software signer, per-key file in the app data dir | `software` | Implemented, unit-tested |
+| **macOS** | Secure Enclave / data-protection keychain — **requires a signed, entitled build** (see below) | `secure_enclave` / `keychain` → falls back to `software` | Implemented; enclave path not yet exercised on real hardware |
+| **Windows / Linux** | Rust `p256` software signer, per-key file in the app data dir | `software` | Implemented, unit-tested |
 
-Native desktop backends — macOS Secure Enclave, Windows CNG against the
-Microsoft Platform Crypto Provider (TPM), Linux TPM 2.0 — are **not implemented
-yet**. `src/desktop/mod.rs` is the seam they plug into: each becomes a `probe()`
-and a `Backend` impl, with no change to the commands or the public API. Until
-then every desktop OS resolves to the software signer, so the plugin
-under-claims rather than over-claims.
+### macOS needs an entitlement, or it silently degrades
 
-Worth naming explicitly: this is a **regression against the Flutter original**
-on macOS, which does have a Secure Enclave implementation (the same Swift file
-as iOS, symlinked). Tauri routes desktop through Rust rather than Swift, so that
-code cannot be reused directly.
+A Secure Enclave key on macOS must live in the **data-protection keychain**,
+and writing there requires the app to be code-signed with a
+`keychain-access-groups` entitlement carrying your team prefix. Without it every
+key creation fails with `errSecMissingEntitlement` (-34018).
+
+So `src-tauri/entitlements.plist`:
+
+```xml
+<key>keychain-access-groups</key>
+<array><string>$(AppIdentifierPrefix)your.bundle.id</string></array>
+```
+
+and in `tauri.conf.json`: `"bundle": { "macOS": { "entitlements": "entitlements.plist" } }`.
+
+The plugin's probe **writes** a throwaway key at startup to find out whether
+this build can actually store one. If it cannot — an unsigned `cargo run`, a
+development build with no certificate — the backend declines and the software
+signer takes over, reporting `software` honestly. You will not get a plugin that
+registers successfully and then fails every call.
+
+**Verified so far:** the backend compiles, and the probe-and-fall-back path is
+confirmed end to end in an unsigned app bundle. The enclave path itself has
+**not** been run, because it needs an Apple Developer signing identity, which
+was not available on the machine this was built on. Ad-hoc signing (`codesign -s -`)
+cannot carry that entitlement — the app is rejected at launch.
+
+Windows (CNG against the Microsoft Platform Crypto Provider) and Linux (TPM 2.0)
+are still outstanding; `src/desktop/mod.rs` is the seam they plug into.
 
 The Secure Enclave supports exactly one curve — NIST P-256 — which is also the
 curve JWS ES256 requires, so there is no protocol mismatch to work around.

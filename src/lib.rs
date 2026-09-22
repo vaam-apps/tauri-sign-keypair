@@ -22,6 +22,7 @@ use tauri::{
     Manager, Runtime,
 };
 
+mod asn1;
 mod b64;
 mod commands;
 mod error;
