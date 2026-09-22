@@ -65,7 +65,7 @@ does not and cannot silently upgrade an already-enrolled device. See
 | **Web** (browser, no Tauri) | WebCrypto, non-extractable `CryptoKey` in IndexedDB | `software` | Implemented, unit-tested |
 | **macOS** | Secure Enclave / data-protection keychain — **requires a signed, entitled build** (see below) | `secure_enclave` / `keychain` → falls back to `software` | Implemented; enclave path not yet exercised on real hardware |
 | **Windows** | CNG, Microsoft Platform Crypto Provider (TPM) | `tee` → falls back to `software` | Implemented; **type-checked only** — no Windows machine was available |
-| **Linux** | Rust `p256` software signer, per-key file in the app data dir | `software` | Implemented, unit-tested |
+| **Linux** | Rust `p256` software signer, per-key file in the app data dir | `software` | Implemented, unit-tested. TPM backend **designed but not shipped** — see below |
 
 ### macOS needs an entitlement, or it silently degrades
 
@@ -116,7 +116,24 @@ key store, which this plugin does not use.
 (`cargo check --target x86_64-pc-windows-msvc`), clippy clean. **Not verified:**
 anything at runtime — there was no Windows machine to run it on.
 
-Linux is still outstanding; `src/desktop/mod.rs` is the seam it plugs into.
+### Linux stays on the software signer, deliberately
+
+Not an oversight — see [`docs/07-linux-tpm.md`](docs/07-linux-tpm.md) for the
+full design and the reasoning. In short: `tss-esapi` needs the `tpm2-tss` C
+libraries, which could not be installed on the build machine, and the Tauri
+Linux target cannot be cross-checked from macOS because of its GTK/WebKit
+system dependencies. So unlike Windows there is **no** verification available,
+not even a type-check.
+
+Shipping several hundred lines of never-compiled crypto into a library whose
+whole point is not over-claiming seemed the wrong trade. It is also lower-value
+than it first appears: `/dev/tpmrm0` is typically `root:tss` 0660, so a desktop
+app falls back to software on most Linux machines regardless.
+
+The design note specifies the key lifecycle, the `fixedTPM | fixedParent`
+attributes that make the key non-migratable, why the blobs go on disk rather
+than in scarce TPM NV storage, and how to validate it against `swtpm` and real
+hardware.
 
 The Secure Enclave supports exactly one curve — NIST P-256 — which is also the
 curve JWS ES256 requires, so there is no protocol mismatch to work around.

@@ -13,7 +13,9 @@ Read in order:
 | 3 | **[Platforms](03-platforms.md)** | Six targets, four levels of protection. What each one really gives you. |
 | 4 | **[The two-key model](04-two-key-model.md)** | Why two keys instead of one, and what breaks if you use one. |
 | 5 | **[How we know it works](05-verification.md)** | Testing strategy: known-answer vectors, cross-validation, and what an emulator can't prove. |
-| 6 | **[Build log](06-build-log.md)** | Every decision and every bug found, in order, from empty directory to tested on two devices. |
+| 6 | **[Build log](06-build-log.md)** | Every decision and every bug found, in order, from empty directory to tested on four platforms. |
+| 7 | **[Linux TPM](07-linux-tpm.md)** | The design for the one backend that is not implemented, and the reasoning for not shipping it yet. |
+
 
 ---
 

@@ -43,8 +43,8 @@ exported. Putting it on the `true` side would be a claim the plugin cannot back.
 | **Android** | AndroidKeyStore + BiometricPrompt | `strongbox` → `tee` → `software` | true on real hardware | ✅ emulator (reports `software` — correct, see below) |
 | **iOS** | Secure Enclave, `SecKeyCreateSignature` | `secure_enclave` / `keychain` | **true** | ✅ simulator, real Secure Enclave |
 | **macOS** | Security.framework FFI | `secure_enclave` / `keychain` → `software` | true *if signed & entitled* | ⚠️ fall-back path only |
-| **Windows** | — not implemented — | `software` | false | ✅ via software tests |
-| **Linux** | — not implemented — | `software` | false | ✅ via software tests |
+| **Windows** | CNG, Microsoft Platform Crypto Provider (TPM) | `tee` → `software` | true with a TPM | ⚠️ type-checked only — no Windows machine |
+| **Linux** | — software only, [by decision](07-linux-tpm.md) — | `software` | false | ✅ via software tests |
 | **Web** | WebCrypto, non-extractable `CryptoKey` | `software` | false | ✅ unit tests |
 
 ---
@@ -60,11 +60,15 @@ flowchart TB
     MAC -->|"yes"| PROBE{"probe: can we<br/><b>write</b> a key to the<br/>data-protection keychain?"}
     PROBE -->|"yes · signed + entitled"| ENC["Secure Enclave backend"]
     PROBE -->|"no · -34018"| SOFT
-    MAC -->|"Windows / Linux"| SOFT["software backend<br/><i>reports 'software'</i>"]
+    MAC -->|"Windows"| WIN{"probe: can we<br/><b>create</b> a key in the<br/>Platform Crypto Provider?"}
+    WIN -->|"yes · TPM present"| TPM["CNG backend · reports 'tee'"]
+    WIN -->|"no TPM / disabled / full"| SOFT
+    MAC -->|"Linux"| SOFT["software backend<br/><i>reports 'software'</i>"]
 
     style ENC fill:#c8e6c9,stroke:#2e7d32
     style A fill:#c8e6c9,stroke:#2e7d32
     style I fill:#c8e6c9,stroke:#2e7d32
+    style TPM fill:#c8e6c9,stroke:#2e7d32
     style SOFT fill:#ffcdd2,stroke:#c62828
 ```
 

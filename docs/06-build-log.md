@@ -35,7 +35,8 @@ flowchart TB
     S4["4 · iOS simulator<br/>real Secure Enclave"] --> S5
     S5["5 · Leaked test keys found<br/>cleanup that ignored panics"] --> S6
     S6["6 · macOS Secure Enclave<br/>probe bug found"] --> S7
-    S7["7 · This documentation"]
+    S7["7 · Documentation"] --> S8
+    S8["8 · Windows CNG<br/>type-checked, not run<br/>Linux: designed, not shipped"]
 
     style S3 fill:#fff3e0,stroke:#e65100
     style S5 fill:#ffebee,stroke:#c62828
@@ -149,6 +150,10 @@ pattern in an integration test against a real keystore would leave real keys.
 
 ### 🐛 6 · The macOS probe tested the wrong operation
 
+*(The Windows probe was written correctly the first time **because** of this
+one — it creates and deletes a key rather than merely opening the provider.
+Three backends in, "probe the operation you actually depend on" is the rule.)*
+
 The Secure Enclave backend probes at startup to decide whether it can be used.
 The first version did a keychain **lookup** — which an unsigned binary is
 perfectly allowed to do.
@@ -207,8 +212,8 @@ falls through to the PIN. That is exactly what the Kotlin asks for on API 30+.
 |---|---|
 | **macOS enclave path, exercised** | Needs an Apple Developer signing identity for the `keychain-access-groups` entitlement. Ad-hoc signing cannot carry it — the app is rejected at launch. |
 | **`reason` on macOS** | The prompt is raised by the access-control flags, but *captioning* it needs an `LAContext`, which means Objective-C interop. |
-| **Windows CNG / TPM** | Not implemented. `src/desktop/mod.rs` is the seam. |
-| **Linux TPM 2.0** | Not implemented. Note that most Linux desktops have no usable TPM, so this would degrade to software on the majority of machines anyway. |
+| **Windows, at runtime** | Implemented and type-checked against the real `windows` crate bindings, but never executed — no Windows machine was available. |
+| **Linux TPM 2.0** | Designed, not shipped — see [document 7](07-linux-tpm.md). No verification was possible at all, not even a type-check. |
 | **Android on physical hardware** | Only an emulator was available, so `tee` / `strongbox` backing is unproven in practice. |
 
 ---
