@@ -123,11 +123,23 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
       - uses: dtolnay/rust-toolchain@stable
+      # No `setup-android` action. The ubuntu runner already ships the SDK at
+      # $ANDROID_HOME, and the action re-runs sdkmanager to install packages it
+      # already has — which is how it was failing here. What the runner does not
+      # export is NDK_HOME, and `tauri android init` needs it, so resolve the
+      # bundled NDK rather than downloading another one.
+      - name: Point Tauri at the runner's bundled NDK
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          ndk=$(find "$ANDROID_HOME/ndk" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -1)
+          test -n "$ndk"
+          echo "NDK_HOME=$ndk" >> "$GITHUB_ENV"
+          echo "using NDK $ndk"
       # `android/` is a Gradle subproject with no wrapper and no settings of its
       # own — it cannot be built standalone. `tauri android init` generates the
       # host project whose `tauri.settings.gradle` includes it as

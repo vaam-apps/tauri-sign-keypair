@@ -53,17 +53,17 @@ use std::str::FromStr;
 
 use sha2::{Digest as _, Sha256};
 use tss_esapi::attributes::ObjectAttributesBuilder;
+use tss_esapi::constants::tss::{TPM2_RH_NULL, TPM2_ST_HASHCHECK};
 use tss_esapi::handles::KeyHandle;
 use tss_esapi::interface_types::algorithm::{HashingAlgorithm, PublicAlgorithm};
 use tss_esapi::interface_types::ecc::EccCurve;
 use tss_esapi::interface_types::resource_handles::Hierarchy;
-use tss_esapi::constants::tss::{TPM2_RH_NULL, TPM2_ST_HASHCHECK};
 use tss_esapi::structures::{
     Digest, EccPoint, EccScheme, HashScheme, HashcheckTicket, Private, Public, PublicBuilder,
     PublicEccParametersBuilder, Signature, SignatureScheme, SymmetricDefinitionObject,
 };
-use tss_esapi::tss2_esys::TPMT_TK_HASHCHECK;
 use tss_esapi::tcti_ldr::TctiNameConf;
+use tss_esapi::tss2_esys::TPMT_TK_HASHCHECK;
 use tss_esapi::Context;
 
 use crate::desktop::Backend;
