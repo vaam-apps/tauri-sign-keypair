@@ -7,6 +7,10 @@ The private key is generated **inside** AndroidKeyStore or the Apple Secure
 Enclave and never leaves it. Signing happens in the secure element; the raw
 private scalar never enters the WebView, the Rust process, or app memory.
 
+**New to device keys, secure elements or JWS?** Start with
+**[`docs/`](docs/README.md)** — a six-part explainer written for someone who has
+not worked with any of this before, with diagrams.
+
 ---
 
 ## Why this exists
