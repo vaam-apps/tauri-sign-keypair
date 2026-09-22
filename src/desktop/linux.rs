@@ -105,21 +105,15 @@ impl TpmBackend {
     /// user is not in the `tss` group cannot open it at all.
     pub(crate) fn probe(directory: PathBuf) -> Option<Self> {
         let mut context = open_context().ok()?;
+        // Built before the closure: its body must return one error type, and
+        // mixing `Option` and `tss_esapi::Result` with `?` inside cannot.
+        let template = signing_key_template().ok()?;
         let primary = create_primary(&mut context).ok()?;
         let created = context
             .execute_with_nullauth_session(|ctx| {
-                ctx.create(
-                    primary,
-                    signing_key_template().ok()?,
-                    None,
-                    None,
-                    None,
-                    None,
-                )
-                .ok()
+                ctx.create(primary, template, None, None, None, None)
             })
-            .flatten()
-            .is_some();
+            .is_ok();
         let _ = context.flush_context(primary.into());
         created.then_some(Self { directory })
     }
@@ -270,6 +264,16 @@ impl Backend for TpmBackend {
         let digest = Digest::try_from(Sha256::digest(payload).to_vec())
             .map_err(|e| keystore(format!("Could not wrap the SHA-256 digest: {e}")))?;
 
+        // A null ticket: the digest was computed outside the TPM, so there is no
+        // proof-of-origin ticket to present. Built here rather than inside the
+        // closure so its error type is ours rather than tss-esapi's.
+        let null_ticket = HashcheckTicket::try_from(TPMT_TK_HASHCHECK {
+            tag: TPM2_ST_HASHCHECK,
+            hierarchy: TPM2_RH_NULL,
+            digest: Default::default(),
+        })
+        .map_err(|e| keystore(format!("Could not build the null hashcheck ticket: {e}")))?;
+
         let signature = context
             .execute_with_nullauth_session(|ctx| {
                 ctx.sign(
@@ -278,18 +282,7 @@ impl Backend for TpmBackend {
                     SignatureScheme::EcDsa {
                         hash_scheme: HashScheme::new(HashingAlgorithm::Sha256),
                     },
-                    // A null ticket: the digest was computed outside the TPM, so
-                    // there is no proof-of-origin ticket to present.
-                    tss_esapi::structures::HashcheckTicket::try_from(
-                        tss_esapi::tss2_esys::TPMT_TK_HASHCHECK {
-                            tag: tss_esapi::constants::tss::TPM2_ST_HASHCHECK,
-                            hierarchy: tss_esapi::constants::tss::TPM2_RH_NULL,
-                            digest: Default::default(),
-                        },
-                    )
-                    .map_err(|_| {
-                        tss_esapi::Error::WrapperError(tss_esapi::WrapperErrorKind::InvalidParam)
-                    })?,
+                    null_ticket,
                 )
             })
             .map_err(|e| keystore(format!("TPM2_Sign failed: {e}")));
@@ -462,4 +455,24 @@ fn marshal<T: tss_esapi::traits::Marshall>(value: &T) -> crate::Result<String> {
 fn unmarshal<T: tss_esapi::traits::UnMarshall>(encoded: &str) -> crate::Result<T> {
     let bytes = crate::b64::decode(encoded)?;
     T::unmarshall(&bytes).map_err(|e| keystore(format!("Could not unmarshal a TPM structure: {e}")))
+}
+
+/// Store the private blob.
+///
+/// `Private` implements neither `Marshall` nor `UnMarshall`: it is a TPM2B
+/// *buffer* rather than a tagged structure, so `tss-esapi` gives it `value()`
+/// and `TryFrom<Vec<u8>>` instead. Its bytes are opaque ciphertext bound to this
+/// TPM, so base64url of the raw buffer is the whole representation.
+fn encode_private(private: &Private) -> String {
+    crate::b64::encode(private.value())
+}
+
+/// The inverse of [`encode_private`].
+fn decode_private(encoded: &str) -> crate::Result<Private> {
+    let bytes = crate::b64::decode(encoded)?;
+    Private::try_from(bytes).map_err(|e| {
+        keystore(format!(
+            "The stored private blob is not a TPM2B_PRIVATE: {e}"
+        ))
+    })
 }
