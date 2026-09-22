@@ -151,13 +151,15 @@ jobs:
         run: |
           npm install && npm run build
           cd examples/tauri-app && npm install && npx tauri android init
-      # `tauri android init` does NOT write `tauri.settings.gradle` — the Rust
-      # build script does, and that is the file that includes the plugin as
-      # `:tauri-plugin-sign-keypair`. Without this step Gradle fails evaluating
-      # settings. `cargo check` is enough: build scripts run, and nothing links,
-      # so no NDK linker is needed.
-      - name: Emit tauri.settings.gradle via the build script
-        run: cargo check --target aarch64-linux-android --manifest-path examples/tauri-app/src-tauri/Cargo.toml
+      # `tauri.settings.gradle` is the file that includes the plugin as
+      # `:tauri-plugin-sign-keypair`, and without it Gradle cannot even evaluate
+      # settings. Neither `tauri android init` nor a bare `cargo check` writes
+      # it — it comes from the `android-studio-script` step that Tauri's Gradle
+      # plugin runs during a real Android build, which is why this does the full
+      # build rather than something cheaper. One ABI only, to keep it bearable.
+      - name: Android build, which writes tauri.settings.gradle
+        working-directory: examples/tauri-app
+        run: npx tauri android build --debug --target aarch64 --apk
       - name: JVM unit tests
         working-directory: examples/tauri-app/src-tauri/gen/android
         run: ./gradlew :tauri-plugin-sign-keypair:testDebugUnitTest --no-daemon
