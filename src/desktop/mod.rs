@@ -9,7 +9,7 @@
 //! |---|---|---|
 //! | macOS | Secure Enclave / data-protection keychain | implemented |
 //! | Windows | CNG, Microsoft Platform Crypto Provider (TPM) | implemented |
-//! | Linux | TPM 2.0 via the TSS Enhanced System API | **not implemented** |
+//! | Linux | TPM 2.0 via the TSS Enhanced System API | behind `linux-tpm`, **unverified** |
 //!
 //! The probe happens **once**, at plugin init, and the result is fixed for the
 //! process. Re-probing per call would mean a machine whose TPM is taken by
@@ -31,6 +31,12 @@ pub(crate) mod macos;
 
 #[cfg(target_os = "windows")]
 pub(crate) mod windows;
+
+// Off by default — see the module's own warning. `tss-esapi` links the tpm2-tss
+// C libraries, so enabling this by default would break `cargo build` for every
+// Linux consumer that has not installed libtss2-dev.
+#[cfg(all(target_os = "linux", feature = "linux-tpm"))]
+pub(crate) mod linux;
 
 // Windows (CNG against the Microsoft Platform Crypto Provider) and Linux
 // (TPM 2.0 via the TSS Enhanced System API) are not implemented yet. Each
@@ -107,6 +113,11 @@ fn select_backend(directory: std::path::PathBuf) -> Box<dyn Backend> {
 
     #[cfg(target_os = "windows")]
     if let Some(backend) = windows::CngBackend::probe() {
+        return Box::new(backend);
+    }
+
+    #[cfg(all(target_os = "linux", feature = "linux-tpm"))]
+    if let Some(backend) = linux::TpmBackend::probe(directory.clone()) {
         return Box::new(backend);
     }
 

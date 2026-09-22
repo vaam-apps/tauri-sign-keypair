@@ -48,6 +48,34 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+      # The one place the Linux TPM module can actually be compiled. It is
+      # off by default and has never been built, so this job is `continue-on-
+      # error`: a failure here must not block a pull request that did not touch
+      # it, but it does surface in the run, which is how the draft stops rotting.
+      - name: Linux TPM backend (unverified — informational only)
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y libtss2-dev
+          cargo clippy --features linux-tpm -- -D warnings
+
+  cross-targets:
+    name: cross-check the mobile and Windows targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc, aarch64-linux-android
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+      # `cargo check` does not link, so a cross target needs no foreign linker.
+      # This is the only verification the Windows backend has — there is no
+      # Windows runner in this workflow — so it is a required check, not
+      # informational.
+      - run: cargo check --target x86_64-pc-windows-msvc
+      - run: cargo check --target aarch64-linux-android
 
   typescript:
     name: typescript

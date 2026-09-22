@@ -1,10 +1,15 @@
-# 7 · Linux TPM — the design, and why it is not implemented
+# 7 · Linux TPM — shipped behind a flag, never compiled
 
 [← build log](06-build-log.md) · [index](README.md)
 
-Linux resolves to the software signer. This document says what a TPM backend
-would look like, and explains the judgement call not to ship one yet — because
-"not implemented" without a reason is indistinguishable from "not thought about".
+> **Status.** `src/desktop/linux.rs` exists and implements the full `Backend`
+> trait against the real `tss-esapi` 7.7 API. It is behind the **off-by-default**
+> `linux-tpm` feature and **has never been compiled or run.** Treat it as a
+> reviewed draft. With the flag off — the default — none of it is compiled and
+> every other target is unaffected.
+
+This document is the design it implements, the reasoning about what could and
+could not be verified, and the steps to actually validate it.
 
 ---
 
@@ -20,7 +25,7 @@ flowchart TB
     A -->|"hand-roll the wire protocol"| C1["~500 lines of TPM2B marshalling,<br/>sessions and authorisation areas"]
     C1 --> C2["⚠️ compiles, but a single wrong offset<br/>fails silently on real hardware<br/>— and there is no hardware to test on"]
 
-    A2 & B2 & C2 --> D["Decision: <b>do not ship</b><br/>unverifiable crypto into a library<br/>whose whole point is not over-claiming"]
+    A2 & B2 & C2 --> D["Shipped behind an <b>off-by-default</b> flag,<br/>written against the real API source,<br/>labelled never-compiled"]
 
     style D fill:#fff3e0,stroke:#e65100,stroke-width:2px
 ```
@@ -123,9 +128,9 @@ Two details that differ from every other backend here:
 | `user_present` | **refuse.** A TPM can require an auth value per use, but there is no OS-level biometric prompt and no binding to a biometric enrolment — the same reasoning that refuses it on Windows |
 | probe | must **create and delete** a key, not merely open the device. Opening `/dev/tpmrm0` succeeds on a machine whose TPM then refuses key creation — the same trap that was found on both macOS and Windows |
 
-### Validating it
+### Validating it — still required
 
-It cannot be signed off on from a screenshot. The minimum is:
+Nothing below has been done. The minimum before trusting this module:
 
 1. `cargo build --features linux-tpm` on a Linux box with `libtss2-dev`
 2. run against the **TPM simulator** (`swtpm`) for correctness
@@ -137,10 +142,15 @@ It cannot be signed off on from a screenshot. The minimum is:
 
 ## Current Linux behaviour
 
-Software signer, per-key file in the app data dir, `backing: "software"`,
-`hardwareBacked: false`, and `user_present` refused. Fully implemented and
-covered by the seven desktop tests — it is a deliberate, honestly-labelled
-fallback, not a gap pretending to be one.
+**Default (`linux-tpm` off):** software signer, per-key file in the app data
+dir, `backing: "software"`, `hardwareBacked: false`, `user_present` refused.
+Fully implemented and covered by the seven desktop tests.
+
+**With `linux-tpm` on:** the probe runs first. It opens `/dev/tpmrm0` (or
+`$TCTI`) and *creates and deletes* a key — not merely opening the device, which
+succeeds on machines whose TPM then refuses key creation. If anything fails, the
+software signer takes over and reports `software` honestly. So even an enabled,
+unvalidated TPM path degrades rather than breaking the app.
 
 ---
 

@@ -35,6 +35,9 @@ security-framework-sys = { version = "2", features = ["OSX_10_15"] }
 sha2 = "0.10"
 windows = { version = "0.62", features = ["Win32_Security_Cryptography", "Win32_Foundation", "Win32_Security"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+tss-esapi = { version = "7", optional = true }
+
 [build-dependencies]
 tauri-plugin = { version = "2", features = ["build"] }
 
@@ -43,3 +46,9 @@ tauri-plugin = { version = "2", features = ["build"] }
 base64 = "0.22"
 p256 = { version = "0.13", features = ["ecdsa"] }
 tauri = { version = "2", features = ["test"] }
+
+# Off by default, and it must stay that way: `tss-esapi` links the tpm2-tss C
+# libraries, which are absent on most build machines. Enabling it by default
+# would break `cargo build` for every Linux consumer without libtss2-dev.
+[features]
+linux-tpm = ["dep:tss-esapi"]
