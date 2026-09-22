@@ -435,6 +435,28 @@ gradle :tauri-plugin-sign-keypair:connectedDebugAndroidTest
 
 ---
 
+## The example app
+
+`examples/tauri-app/` is a minimal Tauri v2 app wired to this plugin — enrol,
+sign, verify, delete, with the output of every call printed.
+
+```bash
+npm install && npm run build      # the example consumes the built JS package
+cd examples/tauri-app && npm install && npm run tauri dev
+```
+
+Its **verify** button re-verifies the JWS in the WebView with
+`crypto.subtle.verify` against the JWK the plugin reported, which is the same
+discipline the test suites follow: check the signature against the key the
+caller was handed, not against anything the signer produced internally.
+
+Running `npm run dev` alone and opening `http://localhost:5173` in an ordinary
+browser loads the identical page against the WebCrypto backend instead, since
+`isTauri()` is false there. It is the quickest way to see that both backends
+refuse the same two things.
+
+---
+
 ## Design notes
 
 ### Why bytes cross the IPC as base64url

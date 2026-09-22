@@ -1,0 +1,14 @@
+[package]
+name = "tauri-sign-keypair-example"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+# A path dependency on purpose: this example exists to exercise the plugin in
+# the same checkout, so a version bump cannot leave it testing an older release.
+tauri-plugin-sign-keypair = { path = "../../.." }

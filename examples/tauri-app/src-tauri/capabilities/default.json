@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "What the example's window is allowed to call.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "sign-keypair:default"
+  ]
+}

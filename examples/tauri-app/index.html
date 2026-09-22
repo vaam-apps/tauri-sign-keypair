@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sign-keypair example</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>tauri-plugin-sign-keypair</h1>
+      <p id="platform" class="muted">probing…</p>
+
+      <section>
+        <h2>1. Enrol</h2>
+        <p class="muted">
+          Creates the two-key pair. On this desktop build the user-present key is
+          refused, which is the point — watch what the error says.
+        </p>
+        <div class="row">
+          <button id="enrol">generateDeviceKeys()</button>
+          <button id="enrol-ambient">generateKey() — ambient only</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>2. Sign</h2>
+        <div class="row">
+          <button id="sign">signCompactJws()</button>
+          <button id="verify">verify the last JWS</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>3. Clean up</h2>
+        <div class="row">
+          <button id="inspect">getKey()</button>
+          <button id="delete">deleteKey()</button>
+        </div>
+      </section>
+
+      <h2>Output</h2>
+      <pre id="log"></pre>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
