@@ -160,6 +160,44 @@ action('delete', 'deleteKey()', async () => {
   log('  ✓ deleted — the backend registration for it is now stale', 'ok')
 })
 
+/**
+ * Run the whole sequence start to finish.
+ *
+ * Exists for two reasons. It is a one-press smoke test on a real device, and it
+ * is the only way to exercise the plugin on a platform where there is no input
+ * injection to press the buttons with — an iOS simulator has no `adb shell
+ * input tap` equivalent, so an automated run loads this page with `?autorun`
+ * and reads the log off a screenshot.
+ *
+ * The user-present step is skipped: it blocks on a prompt only a human can
+ * answer, so including it would hang an unattended run rather than test it.
+ */
+async function runAll() {
+  for (const id of ['delete', 'enrol', 'enrol-ambient', 'sign', 'verify', 'inspect']) {
+    document.querySelector<HTMLButtonElement>(`#${id}`)!.click()
+    // Each handler takes the `busy` latch, so wait for it to clear rather than
+    // firing all six at once and interleaving their output.
+    while (busy) await new Promise((r) => setTimeout(r, 50))
+  }
+  // Bring the log into view. On a platform with no input injection a screenshot
+  // is the only way to read the result, and the log sits below the fold.
+  out.scrollIntoView({ block: 'start' })
+}
+
+document.querySelector<HTMLButtonElement>('#run-all')!.addEventListener('click', runAll)
+
+// Two ways in, because the two builds differ. A dev build is loaded from a URL,
+// so `?autorun` works there. A bundled build (what ships to a simulator or a
+// device) is loaded from the app package with no URL to add a parameter to, so
+// it needs a build-time flag: `VITE_AUTORUN=1 npm run build`.
+if (
+  new URLSearchParams(location.search).has('autorun') ||
+  import.meta.env.VITE_AUTORUN === '1'
+) {
+  // After capabilities() has printed, so the log reads in order.
+  setTimeout(runAll, 600)
+}
+
 function b64uDecode(value: string): Uint8Array {
   const padded = value.replace(/-/g, '+').replace(/_/g, '/')
   const binary = atob(padded.padEnd(Math.ceil(padded.length / 4) * 4, '='))

@@ -61,6 +61,18 @@ does not and cannot silently upgrade an already-enrolled device. See
 | **Web** (browser, no Tauri) | WebCrypto, non-extractable `CryptoKey` in IndexedDB | `software` | Implemented, unit-tested |
 | **macOS / Windows / Linux** | Rust `p256` software signer, per-key file in the app data dir | `software` | Implemented, unit-tested |
 
+Native desktop backends — macOS Secure Enclave, Windows CNG against the
+Microsoft Platform Crypto Provider (TPM), Linux TPM 2.0 — are **not implemented
+yet**. `src/desktop/mod.rs` is the seam they plug into: each becomes a `probe()`
+and a `Backend` impl, with no change to the commands or the public API. Until
+then every desktop OS resolves to the software signer, so the plugin
+under-claims rather than over-claims.
+
+Worth naming explicitly: this is a **regression against the Flutter original**
+on macOS, which does have a Secure Enclave implementation (the same Swift file
+as iOS, symlinked). Tauri routes desktop through Rust rather than Swift, so that
+code cannot be reused directly.
+
 The Secure Enclave supports exactly one curve — NIST P-256 — which is also the
 curve JWS ES256 requires, so there is no protocol mismatch to work around.
 

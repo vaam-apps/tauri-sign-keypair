@@ -1,7 +1,11 @@
 //! The software fallback. The fallback, and only the fallback.
 //!
-//! Windows, Linux and macOS get this. The private scalar lives in process
-//! memory while the key is in use and on disk between runs, so it is
+//! Reached when no native backend on this OS could be opened — no TPM on
+//! Windows or Linux, or the `linux-tpm` feature is off. macOS never lands here
+//! in practice, because the data-protection keychain is always available.
+//!
+//! The private scalar lives in process memory while the key is in use and on
+//! disk between runs, so it is
 //! extractable by anything that can read either — which is exactly why every
 //! key this signer produces reports [`KeyBacking::Software`] and
 //! `hardware_backed: false`. That flag is the API's whole point: a caller can
@@ -27,11 +31,10 @@
 use std::path::PathBuf;
 
 use p256::ecdsa::{signature::Signer, Signature, SigningKey};
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use tauri::{plugin::PluginApi, AppHandle, Manager, Runtime};
 
 use crate::b64;
+use crate::desktop::Backend;
 use crate::error::{Error, SignerErrorCode};
 use crate::models::{EcPublicJwk, KeyBacking, KeyProtection, SecureKey, SignerCapabilities};
 
@@ -47,33 +50,7 @@ struct KeyRecord {
     y: String,
 }
 
-/// Initialise the desktop backend.
-pub fn init<R: Runtime, C: DeserializeOwned>(
-    app: &AppHandle<R>,
-    _api: PluginApi<R, C>,
-) -> crate::Result<SignKeypair<R>> {
-    // `app_local_data_dir` rather than `app_data_dir`: this key is bound to the
-    // machine it was generated on, so it must not follow a roaming profile onto
-    // another one. A roamed device credential is a device credential that is no
-    // longer device-bound.
-    let directory = app
-        .path()
-        .app_local_data_dir()
-        .map(|dir| dir.join("sign-keypair"))
-        .map_err(|e| {
-            Error::new(
-                SignerErrorCode::KeystoreFailure,
-                format!("Could not resolve the app local data directory: {e}"),
-            )
-        })?;
-
-    Ok(SignKeypair {
-        directory,
-        _app: app.clone(),
-    })
-}
-
-/// The desktop signer, held in Tauri's managed state.
+/// A file-backed P-256 signer.
 ///
 /// One file per key, rather than one file holding a map of them, and no
 /// in-memory cache. A single file would make every write a read-modify-write of
@@ -81,22 +58,26 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 /// behaviour is opt-in, so this is a thing users do — would race, and the
 /// loser's device key would silently disappear. Per-key files make a write
 /// touch only the key it is about, so there is no map to lose.
-pub struct SignKeypair<R: Runtime> {
+pub(crate) struct SoftwareBackend {
     directory: PathBuf,
-    _app: AppHandle<R>,
 }
 
-impl<R: Runtime> SignKeypair<R> {
+impl SoftwareBackend {
+    pub(crate) fn new(directory: PathBuf) -> Self {
+        Self { directory }
+    }
+}
+
+impl Backend for SoftwareBackend {
     /// What this platform can do: software, and it says so.
-    pub fn capabilities(&self) -> crate::Result<SignerCapabilities> {
+    fn capabilities(&self) -> crate::Result<SignerCapabilities> {
         Ok(SignerCapabilities::new(
             "rust-software",
             KeyBacking::Software,
         ))
     }
 
-    /// Create a P-256 keypair under `key_id`.
-    pub fn generate_key(
+    fn generate_key(
         &self,
         key_id: &str,
         require_hardware: bool,
@@ -147,21 +128,13 @@ impl<R: Runtime> SignKeypair<R> {
         Ok(describe(key_id, &record))
     }
 
-    /// The existing key handle, or `None` when there is none.
-    pub fn get_key(&self, key_id: &str) -> crate::Result<Option<SecureKey>> {
+    fn get_key(&self, key_id: &str) -> crate::Result<Option<SecureKey>> {
         Ok(self.read(key_id)?.map(|record| describe(key_id, &record)))
     }
 
-    /// Sign `payload`, returning a 64-byte IEEE P1363 `r‖s` signature.
-    ///
     /// `reason` is accepted and ignored: this signer never holds a user-present
-    /// key (see [`Self::generate_key`]), so there is no prompt to caption.
-    pub fn sign(
-        &self,
-        key_id: &str,
-        payload: &[u8],
-        _reason: Option<&str>,
-    ) -> crate::Result<Vec<u8>> {
+    /// key, so there is no prompt to caption.
+    fn sign(&self, key_id: &str, payload: &[u8], _reason: Option<&str>) -> crate::Result<Vec<u8>> {
         let record = self.read(key_id)?.ok_or_else(|| {
             Error::new(
                 SignerErrorCode::KeyNotFound,
@@ -186,8 +159,7 @@ impl<R: Runtime> SignKeypair<R> {
         Ok(signature.to_bytes().to_vec())
     }
 
-    /// Remove the key at `key_id`. Removing a key that does not exist is a no-op.
-    pub fn delete_key(&self, key_id: &str) -> crate::Result<()> {
+    fn delete_key(&self, key_id: &str) -> crate::Result<()> {
         match std::fs::remove_file(self.path_for(key_id)) {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
@@ -197,7 +169,9 @@ impl<R: Runtime> SignKeypair<R> {
             )),
         }
     }
+}
 
+impl SoftwareBackend {
     /// Where one key's record lives.
     ///
     /// The file name is the base64url of the key id, not the key id itself: the
