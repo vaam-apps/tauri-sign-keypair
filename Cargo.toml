@@ -1,0 +1,36 @@
+[package]
+name = "tauri-plugin-sign-keypair"
+version = "0.1.0" # x-release-please-version
+description = "Hardware-backed ECDSA P-256 (ES256) signing for device-bound authentication in Tauri v2 apps."
+authors = ["Vaam <oss@vaam.app>"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77.2"
+repository = "https://github.com/vaam-apps/tauri-sign-keypair"
+exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
+
+# Required by `tauri-plugin`: the build script emits the mobile-project paths
+# and the permission schema through this link key.
+links = "tauri-plugin-sign-keypair"
+
+[dependencies]
+tauri = { version = "2" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+
+# The software fallback exists only where there is no native keystore to call.
+# Pulling p256 in on mobile too would ship an ECDSA implementation that nothing
+# can reach, and blur the "this target is degraded" line the crate draws.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+
+[dev-dependencies]
+base64 = "0.22"
+p256 = { version = "0.13", features = ["ecdsa"] }
+tauri = { version = "2", features = ["test"] }

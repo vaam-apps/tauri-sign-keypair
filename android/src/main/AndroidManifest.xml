@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  No permissions are declared here on purpose.
+
+  AndroidKeyStore needs none, and BiometricPrompt has not needed USE_BIOMETRIC
+  since androidx.biometric moved to the unified prompt — declaring it would put
+  a permission on every consuming app's manifest for nothing.
+-->
+<manifest />

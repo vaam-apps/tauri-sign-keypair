@@ -1,0 +1,24 @@
+"$schema" = "schemas/schema.json"
+
+# Every command is allowed by default, and that is a deliberate choice worth
+# stating: none of them can leak key material. `generate_key`, `get_key` and
+# `capabilities` return only public halves and a backing tag; `sign` produces a
+# signature, which is the whole point of the plugin; `delete_key` removes a key
+# the frontend could have removed by generating over it anyway.
+#
+# The one command with a real blast radius is `delete_key` — it strands a device
+# whose backend registration points at the deleted key. An app that never needs
+# to unenrol from the frontend should narrow this by listing the individual
+# `allow-*` permissions it wants instead of `sign-keypair:default`.
+[default]
+description = """
+Allows every signing-key operation: probing the platform's capabilities,
+generating and reading a key handle, signing, and deleting a key.
+"""
+permissions = [
+  "allow-capabilities",
+  "allow-generate-key",
+  "allow-get-key",
+  "allow-sign",
+  "allow-delete-key",
+]

@@ -1,0 +1,105 @@
+# The four language suites.
+#
+# Split by runner rather than crammed into one job: the Swift codec tests need
+# macOS, the Rust desktop tests are fastest on Linux, and the Android unit tests
+# need a JDK but no device. Keeping them apart means a failure names the
+# language that broke, and a macOS runner is not burned to find out that a
+# TypeScript test is red.
+#
+# What is NOT here, stated plainly rather than left to be discovered: the
+# Android instrumented suite (`src/androidTest`) needs a booted device, and the
+# iOS plugin surface needs a simulator and a generated Tauri Xcode project.
+# Both are run by hand; see README.md's "Running the tests".
+name: tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: rust
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the Linux WebView dependencies
+        # `tauri` links against webkit2gtk even for a headless test binary, so
+        # this is not optional on a bare runner.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0 # v2.8.0
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+
+  typescript:
+    name: typescript
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  swift:
+    name: swift
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Pure SwiftPM: no simulator, no Tauri runtime, no keychain. The sources
+      # under darwin_tests/Sources are symlinks to the files the plugin ships,
+      # so this exercises the real code rather than a copy that could drift.
+      - name: Codec and wire-contract tests
+        working-directory: darwin_tests
+        run: swift test
+
+  kotlin:
+    name: kotlin
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+      # The plugin's Gradle project resolves `:tauri-android` out of
+      # `android/.tauri/`, which `build.rs` populates from the `tauri` crate.
+      # Running the build script first is what puts it there.
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Materialise the Tauri Android API
+        run: cargo build --lib
+      - uses: gradle/actions/setup-gradle@ac638b010cf58a27ee6c972d7336334ccaf61c96 # v4.4.1
+      - name: JVM unit tests
+        working-directory: android
+        run: gradle testDebugUnitTest --no-daemon
