@@ -22,6 +22,10 @@ use tauri::{
     Manager, Runtime,
 };
 
+// Only macOS needs it: AndroidKeyStore and the Security framework emit DER, but
+// the Kotlin and Swift sides convert before the bytes ever reach Rust, and
+// Windows CNG returns IEEE P1363 already.
+#[cfg(target_os = "macos")]
 mod asn1;
 mod b64;
 mod commands;

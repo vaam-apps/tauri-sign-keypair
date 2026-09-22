@@ -8,7 +8,7 @@
 //! | OS | Intended native backend | Status |
 //! |---|---|---|
 //! | macOS | Secure Enclave / data-protection keychain | implemented |
-//! | Windows | CNG, Microsoft Platform Crypto Provider (TPM) | **not implemented** |
+//! | Windows | CNG, Microsoft Platform Crypto Provider (TPM) | implemented |
 //! | Linux | TPM 2.0 via the TSS Enhanced System API | **not implemented** |
 //!
 //! The probe happens **once**, at plugin init, and the result is fixed for the
@@ -28,6 +28,9 @@ pub(crate) mod software;
 
 #[cfg(target_os = "macos")]
 pub(crate) mod macos;
+
+#[cfg(target_os = "windows")]
+pub(crate) mod windows;
 
 // Windows (CNG against the Microsoft Platform Crypto Provider) and Linux
 // (TPM 2.0 via the TSS Enhanced System API) are not implemented yet. Each
@@ -99,6 +102,11 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 fn select_backend(directory: std::path::PathBuf) -> Box<dyn Backend> {
     #[cfg(target_os = "macos")]
     if let Some(backend) = macos::SecureEnclaveBackend::probe() {
+        return Box::new(backend);
+    }
+
+    #[cfg(target_os = "windows")]
+    if let Some(backend) = windows::CngBackend::probe() {
         return Box::new(backend);
     }
 

@@ -64,7 +64,8 @@ does not and cannot silently upgrade an already-enrolled device. See
 | **iOS** | `SecKeyCreateSignature`, Secure Enclave, `LAContext` | `secure_enclave` / `keychain` | Implemented, tested on simulator |
 | **Web** (browser, no Tauri) | WebCrypto, non-extractable `CryptoKey` in IndexedDB | `software` | Implemented, unit-tested |
 | **macOS** | Secure Enclave / data-protection keychain — **requires a signed, entitled build** (see below) | `secure_enclave` / `keychain` → falls back to `software` | Implemented; enclave path not yet exercised on real hardware |
-| **Windows / Linux** | Rust `p256` software signer, per-key file in the app data dir | `software` | Implemented, unit-tested |
+| **Windows** | CNG, Microsoft Platform Crypto Provider (TPM) | `tee` → falls back to `software` | Implemented; **type-checked only** — no Windows machine was available |
+| **Linux** | Rust `p256` software signer, per-key file in the app data dir | `software` | Implemented, unit-tested |
 
 ### macOS needs an entitlement, or it silently degrades
 
@@ -94,8 +95,28 @@ confirmed end to end in an unsigned app bundle. The enclave path itself has
 was not available on the machine this was built on. Ad-hoc signing (`codesign -s -`)
 cannot carry that entitlement — the app is rejected at launch.
 
-Windows (CNG against the Microsoft Platform Crypto Provider) and Linux (TPM 2.0)
-are still outstanding; `src/desktop/mod.rs` is the seam they plug into.
+### Windows uses the TPM, and refuses user-presence
+
+The Windows backend opens the **Microsoft Platform Crypto Provider**, which is
+TPM-backed, and reports `tee`. Its probe creates and deletes a throwaway key, so
+a machine with no TPM, a disabled TPM, or a TPM at capacity falls back to the
+portable software signer — not to Microsoft's software KSP, because two software
+stores on one OS would put a key under the same key id in two different places
+depending on the machine, and `delete_key` would have to guess which.
+
+`protection: 'user_present'` is **refused** on Windows. The nearest equivalent,
+`NCRYPT_UI_POLICY`, makes the TPM demand the key's own PIN before each use —
+a real per-operation check, but not bound to a biometric enrolment, so the
+property the user-present key exists to carry ("a newly enrolled fingerprint
+does not inherit this key's authority") does not hold. Windows Hello proper is
+`KeyCredentialManager`, a WinRT API with its own enrolment ceremony and its own
+key store, which this plugin does not use.
+
+**Verified:** type-checks against the real `windows` crate bindings
+(`cargo check --target x86_64-pc-windows-msvc`), clippy clean. **Not verified:**
+anything at runtime — there was no Windows machine to run it on.
+
+Linux is still outstanding; `src/desktop/mod.rs` is the seam it plugs into.
 
 The Secure Enclave supports exactly one curve — NIST P-256 — which is also the
 curve JWS ES256 requires, so there is no protocol mismatch to work around.
