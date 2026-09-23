@@ -1,6 +1,6 @@
 {
   "name": "tauri-plugin-sign-keypair-api",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Hardware-backed ECDSA P-256 (ES256) signing for device-bound authentication in Tauri v2 apps.",
   "license": "MIT",
   "repository": {
