@@ -215,6 +215,7 @@ falls through to the PIN. That is exactly what the Kotlin asks for on API 30+.
 | **Windows, at runtime** | Implemented and type-checked against the real `windows` crate bindings, but never executed — no Windows machine was available. |
 | **Linux TPM 2.0** | Designed, not shipped — see [document 7](07-linux-tpm.md). No verification was possible at all, not even a type-check. |
 | **Android on physical hardware** | Only an emulator was available, so `tee` / `strongbox` backing is unproven in practice. |
+| **Attestation, anywhere** | Not implemented on any platform. `hardwareBacked` is the device's own report and no backend can verify it — the largest open gap in the design. See [document 8](08-attestation.md). |
 
 ---
 

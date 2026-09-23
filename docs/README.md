@@ -15,6 +15,7 @@ Read in order:
 | 5 | **[How we know it works](05-verification.md)** | Testing strategy: known-answer vectors, cross-validation, and what an emulator can't prove. |
 | 6 | **[Build log](06-build-log.md)** | Every decision and every bug found, in order, from empty directory to tested on four platforms. |
 | 7 | **[Linux TPM](07-linux-tpm.md)** | The design for the one backend that is not implemented, and the reasoning for not shipping it yet. |
+| 8 | **[Attestation](08-attestation.md)** | The largest open gap: why `hardwareBacked` is currently the client's word for it, and what proving it would take. |
 
 
 ---

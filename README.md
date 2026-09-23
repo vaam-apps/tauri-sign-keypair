@@ -267,14 +267,40 @@ Neither wrong guess is safe, so there is no default — a mismatched version
 pairing fails loudly at the call instead of producing a key with the wrong
 policy baked in.
 
+### What `hardwareBacked` does *not* tell you
+
+It is the **device's own report**. Nothing in this plugin lets your backend
+verify it: a modified app can claim `hardwareBacked: true` over a key in a text
+file, and the server has no way to tell. Closing that needs *attestation* — a
+certificate the silicon vendor signed — and this plugin does not implement any.
+
+That is the largest open gap in the design, and it is not uniform across
+platforms: Android offers real key attestation, iOS only attests a *different*
+key that you then have to bind to this one, and macOS offers nothing at all.
+[`docs/08-attestation.md`](docs/08-attestation.md) sets out what each platform
+can and cannot prove, and what the API would have to look like.
+
+Until then, treat `hardwareBacked` as a useful signal for logging and risk
+scoring — not as something to gate a high-value operation on by itself.
+
 ---
 
 ## Installing
 
+Pin the tag. This plugin is not on crates.io or npm, deliberately: four
+languages ship from one tag, and publishing only the Rust and JS halves would
+let the native sides drift out of step with them.
+
 ```bash
-cargo add tauri-plugin-sign-keypair --git https://github.com/vaam-apps/tauri-sign-keypair
-npm install github:vaam-apps/tauri-sign-keypair
+cargo add tauri-plugin-sign-keypair --git https://github.com/vaam-apps/tauri-sign-keypair --tag v0.2.0
+npm install github:vaam-apps/tauri-sign-keypair#v0.2.0
 ```
+
+Without `--tag` / `#v0.2.0` you track `main`, which is not a release and may
+contain half-finished work. Keep the two in step — a Rust crate and a JS package
+from different commits will disagree about the wire vocabulary, and the failure
+shows up as an unrecognised protection tag at the first `generateDeviceKeys()`
+call rather than at build time.
 
 Register the plugin in `src-tauri/src/lib.rs`:
 
