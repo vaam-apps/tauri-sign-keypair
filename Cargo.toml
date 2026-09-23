@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-sign-keypair"
-version = "0.2.0" # x-release-please-version
+version = "0.2.1" # x-release-please-version
 description = "Hardware-backed ECDSA P-256 (ES256) signing for device-bound authentication in Tauri v2 apps."
 authors = ["Vaam <oss@vaam.app>"]
 license = "MIT"
