@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/vaam-apps/tauri-sign-keypair/compare/v0.2.0...v0.2.1) (2026-10-21)
+
+
+### Documentation
+
+* pin the install to v0.2.0, and write up the attestation gap ([45eb062](https://github.com/vaam-apps/tauri-sign-keypair/commit/45eb062d532667e3d7148ddf6a1d8d113aabba61))
+* publish the explainer series as a VitePress site ([#3](https://github.com/vaam-apps/tauri-sign-keypair/issues/3)) ([aba92e7](https://github.com/vaam-apps/tauri-sign-keypair/commit/aba92e7caf8c973e5fd997d20f1a75ef3e91b6b3))
+
 ## [0.2.0](https://github.com/vaam-apps/tauri-sign-keypair/compare/v0.1.0...v0.2.0) (2026-09-22)
 
 
