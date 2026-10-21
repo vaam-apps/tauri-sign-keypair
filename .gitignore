@@ -37,3 +37,7 @@ node_modules/
 /android/build/
 /android/.gradle/
 /android/local.properties
+
+# VitePress docs site (docs/ is its own pnpm project)
+/docs/.vitepress/dist/
+/docs/.vitepress/cache/
